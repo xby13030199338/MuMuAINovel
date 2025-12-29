@@ -4,8 +4,14 @@
 
 set -e  # 遇到错误立即退出
 
+# 获取版本信息(从config.py中提取)
+APP_VERSION=$(grep -oP "app_version:\s*str\s*=\s*\"\K[^\"]*" /app/app/config.py || echo "unknown")
+BUILD_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+
 echo "================================================"
 echo "🚀 MuMuAINovel 启动中..."
+echo "📦 版本: v${APP_VERSION}"
+echo "🕐 启动时间: ${BUILD_TIME}"
 echo "================================================"
 
 # 数据库配置（从环境变量读取）

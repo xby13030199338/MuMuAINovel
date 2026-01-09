@@ -488,6 +488,8 @@ async def delete_character(
     db: AsyncSession = Depends(get_db)
 ):
     """删除角色"""
+    from app.models.career import CharacterCareer
+    
     result = await db.execute(
         select(Character).where(Character.id == character_id)
     )
@@ -500,8 +502,21 @@ async def delete_character(
     user_id = getattr(request.state, 'user_id', None)
     await verify_project_access(character.project_id, user_id, db)
     
+    # 清理角色-职业关联关系
+    career_relations_result = await db.execute(
+        select(CharacterCareer).where(CharacterCareer.character_id == character_id)
+    )
+    career_relations = career_relations_result.scalars().all()
+    
+    for relation in career_relations:
+        await db.delete(relation)
+        logger.info(f"删除角色职业关联：character_id={character_id}, career_id={relation.career_id}, type={relation.career_type}")
+    
+    # 删除角色
     await db.delete(character)
     await db.commit()
+    
+    logger.info(f"删除角色成功：{character.name} (ID: {character_id}), 清理了 {len(career_relations)} 条职业关联")
     
     return {"message": "角色删除成功"}
 

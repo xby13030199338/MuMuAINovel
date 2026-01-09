@@ -361,7 +361,7 @@ async def career_system_generator(
             rules=world_data.get('rules', '未设定')
         )
         
-        estimated_total = 8000
+        estimated_total = 5000
         MAX_CAREER_RETRIES = 3  # 最多重试3次
         career_retry_count = 0
         career_generation_success = False
@@ -685,7 +685,7 @@ async def characters_generator(
                     
                     yield await tracker.generating(
                         current_chars=0,
-                        estimated_total=1000,
+                        estimated_total=BATCH_SIZE * 800,
                         message=f"生成第{batch_idx+1}/{total_batches}批角色 ({current_batch_size}个)",
                         retry_count=retry_count,
                         max_retries=MAX_RETRIES
@@ -733,7 +733,7 @@ async def characters_generator(
                     accumulated_text = ""
                     chunk_count = 0
                     
-                    estimated_total = 1000
+                    estimated_total = BATCH_SIZE * 800
                     
                     async for chunk in user_ai_service.generate_text_stream(
                         prompt=prompt,

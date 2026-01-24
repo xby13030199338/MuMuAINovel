@@ -1541,11 +1541,19 @@ async def generate_chapter_content_stream(
 确保在整个章节创作过程中始终保持风格的一致性。"""
                     logger.info(f"✅ 已将写作风格注入系统提示词（{len(style_content)}字符）")
                 
+                # 🔢 计算 max_tokens 限制
+                # 中文字符约 1.5-2 个 token，使用 2.5 倍系数确保有足够空间完成段落
+                # 同时设置上限防止过长，下限确保基本可用
+                calculated_max_tokens = int(target_word_count * 3)
+                calculated_max_tokens = max(2000, min(calculated_max_tokens, 16000))  # 限制在 2000-16000 之间
+                logger.info(f"📊 目标字数: {target_word_count}, 计算 max_tokens: {calculated_max_tokens}")
+                
                 # 准备生成参数
                 generate_kwargs = {
                     "prompt": prompt,
-                    "system_prompt": system_prompt_with_style, 
-                    "tool_choice": "required"
+                    "system_prompt": system_prompt_with_style,
+                    "tool_choice": "required",
+                    "max_tokens": calculated_max_tokens  # 添加 max_tokens 限制
                 }
                 if custom_model:
                     logger.info(f"  使用自定义模型: {custom_model}")
@@ -1789,11 +1797,18 @@ async def get_analysis_task_status(
     current_time = datetime.now()
     
     # 自动恢复卡住的任务
+    # 注意：后端分析有3次重试机制，每次重试会重置 started_at
+    # 所以超时时间需要足够长以支持完整的重试周期（约5分钟）
     if task.status == 'running':
-        # 如果任务在running状态超过1分钟，标记为失败
-        if task.started_at and (current_time - task.started_at) > timedelta(minutes=1):
+        # 检查是否正在重试（error_message 包含"重试"信息）
+        is_retrying = task.error_message and '重试' in task.error_message
+        # 如果正在重试，给予更长的超时时间（5分钟），否则3分钟
+        timeout_minutes = 5 if is_retrying else 3
+        
+        # 如果任务在running状态超过超时时间，标记为失败
+        if task.started_at and (current_time - task.started_at) > timedelta(minutes=timeout_minutes):
             task.status = 'failed'
-            task.error_message = '任务超时（超过1分钟未完成，已自动恢复）'
+            task.error_message = f'任务超时（超过{timeout_minutes}分钟未完成，已自动恢复）'
             task.completed_at = current_time
             task.progress = 0
             auto_recovered = True
@@ -1802,10 +1817,10 @@ async def get_analysis_task_status(
             logger.warning(f"🔄 自动恢复卡住的任务: {task.id}, 章节: {chapter_id}")
     
     elif task.status == 'pending':
-        # 如果任务在pending状态超过2分钟仍未开始，标记为失败
-        if task.created_at and (current_time - task.created_at) > timedelta(minutes=2):
+        # 如果任务在pending状态超过3分钟仍未开始，标记为失败
+        if task.created_at and (current_time - task.created_at) > timedelta(minutes=3):
             task.status = 'failed'
-            task.error_message = '任务启动超时（超过2分钟未启动，已自动恢复）'
+            task.error_message = '任务启动超时（超过3分钟未启动，已自动恢复）'
             task.completed_at = current_time
             task.progress = 0
             auto_recovered = True
@@ -2862,13 +2877,21 @@ async def generate_single_chapter_for_batch(
 确保在整个章节创作过程中始终保持风格的一致性。"""
         logger.info(f"✅ 批量生成 - 已将写作风格注入系统提示词（{len(style_content)}字符）")
     
+    # 🔢 计算 max_tokens 限制（批量生成）
+    # 中文字符约 1.5-2 个 token，使用 2.5 倍系数确保有足够空间完成段落
+    # 同时设置上限防止过长，下限确保基本可用
+    calculated_max_tokens = int(target_word_count * 3)
+    calculated_max_tokens = max(2000, min(calculated_max_tokens, 16000))  # 限制在 2000-16000 之间
+    logger.info(f"📊 批量生成 - 目标字数: {target_word_count}, 计算 max_tokens: {calculated_max_tokens}")
+    
     # 非流式生成内容
     full_content = ""
     # 准备生成参数
     generate_kwargs = {
         "prompt": prompt,
         "system_prompt": system_prompt_with_style,
-        "tool_choice": "required"
+        "tool_choice": "required",
+        "max_tokens": calculated_max_tokens  # 添加 max_tokens 限制
     }
     # 如果传入了自定义模型，使用指定的模型
     if custom_model:

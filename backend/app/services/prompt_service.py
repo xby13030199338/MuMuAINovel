@@ -547,7 +547,7 @@ class PromptService:
 撰写第{chapter_number}章《{chapter_title}》的完整正文。
 
 【基本要求】
-- 目标字数：{target_word_count}字（允许±500字浮动）
+- 目标字数：{target_word_count}字（允许±200字浮动）
 - 叙事视角：{narrative_perspective}
 </task>
 

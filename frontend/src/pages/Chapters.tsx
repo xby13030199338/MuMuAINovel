@@ -1193,12 +1193,19 @@ export default function Chapters() {
             等待分析
           </Tag>
         );
-      case 'running':
+      case 'running': {
+        // 检查是否正在重试（后端会在error_message中包含"重试"信息）
+        const isRetrying = task.error_message && task.error_message.includes('重试');
         return (
-          <Tag icon={<SyncOutlined spin />} color="processing">
-            分析中 {task.progress}%
+          <Tag
+            icon={<SyncOutlined spin />}
+            color={isRetrying ? "warning" : "processing"}
+            title={task.error_message || undefined}
+          >
+            {isRetrying ? `重试中 ${task.progress}%` : `分析中 ${task.progress}%`}
           </Tag>
         );
+      }
       case 'completed':
         return (
           <Tag icon={<CheckCircleOutlined />} color="success">

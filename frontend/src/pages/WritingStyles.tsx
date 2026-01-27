@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Button,
   Modal,
@@ -12,18 +12,22 @@ import {
   Empty,
   Typography,
   Row,
-  Col
+  Col,
+  Tabs,
+  Badge,
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   StarOutlined,
-  StarFilled
+  StarFilled,
+  CloudOutlined,
 } from '@ant-design/icons';
 import { useStore } from '../store';
 import { writingStyleApi } from '../services/api';
 import type { WritingStyle, WritingStyleCreate, WritingStyleUpdate } from '../types';
+import PromptWorkshop from '../components/PromptWorkshop';
 
 const { TextArea } = Input;
 const { Text, Paragraph } = Typography;
@@ -56,7 +60,7 @@ export default function WritingStyles() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProject?.id]);
 
-  const loadStyles = async () => {
+  const loadStyles = useCallback(async () => {
     try {
       setLoading(true);
       // 如果有当前项目，使用项目API获取（包含is_default标记）
@@ -80,7 +84,7 @@ export default function WritingStyles() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentProject?.id]);
 
   const handleCreate = async (values: { name: string; description?: string; prompt_content: string }) => {
     try {
@@ -164,36 +168,23 @@ export default function WritingStyles() {
     return styleType === 'preset' ? '预设' : '自定义';
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+  // 渲染本地风格列表
+  const renderLocalStyles = () => (
+    <div>
       <div style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-        backgroundColor: '#fff',
-        padding: isMobile ? '12px 0' : '16px 0',
-        marginBottom: isMobile ? 12 : 16,
-        borderBottom: '1px solid #f0f0f0',
+        marginBottom: 16,
         display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        gap: isMobile ? 12 : 0,
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'stretch' : 'center'
+        justifyContent: 'flex-end',
       }}>
-        <h2 style={{ margin: 0, fontSize: isMobile ? 18 : 24 }}>
-          <EditOutlined style={{ marginRight: 8 }} />
-          写作风格管理
-        </h2>
         <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={showCreateModal}
-          block={isMobile}
         >
           创建自定义风格
         </Button>
       </div>
-
+      
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {styles.length === 0 ? (
           <Empty description="暂无风格数据" />
@@ -312,6 +303,54 @@ export default function WritingStyles() {
           </Row>
         )}
       </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+        backgroundColor: '#fff',
+        padding: isMobile ? '12px 0' : '16px 0',
+        marginBottom: isMobile ? 12 : 16,
+        borderBottom: '1px solid #f0f0f0',
+      }}>
+        <h2 style={{ margin: 0, fontSize: isMobile ? 18 : 24 }}>
+          <EditOutlined style={{ marginRight: 8 }} />
+          写作风格管理
+        </h2>
+      </div>
+
+      <Tabs
+        defaultActiveKey="local"
+        style={{ flex: 1 }}
+        items={[
+          {
+            key: 'local',
+            label: (
+              <span>
+                <EditOutlined />
+                我的风格
+              </span>
+            ),
+            children: renderLocalStyles(),
+          },
+          {
+            key: 'workshop',
+            label: (
+              <Badge dot>
+                <span>
+                  <CloudOutlined />
+                  提示词工坊
+                </span>
+              </Badge>
+            ),
+            children: <PromptWorkshop onImportSuccess={loadStyles} />,
+          },
+        ]}
+      />
 
       {/* 创建自定义风格 Modal */}
       <Modal

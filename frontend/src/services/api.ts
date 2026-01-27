@@ -34,6 +34,10 @@ import type {
   WritingStyleUpdate,
   PresetStyle,
   WritingStyleListResponse,
+  PromptWorkshopListResponse,
+  PromptWorkshopItem,
+  PromptSubmission,
+  PromptSubmissionCreate,
   MCPPlugin,
   MCPPluginCreate,
   MCPPluginUpdate,
@@ -646,6 +650,54 @@ export const writingStyleApi = {
   // 为项目初始化默认风格（如果没有任何风格）
   initializeDefaultStyles: (projectId: string) =>
     api.post<unknown, WritingStyleListResponse>(`/writing-styles/project/${projectId}/initialize`, {}),
+};
+
+export const promptWorkshopApi = {
+  // 检查服务状态
+  getStatus: () =>
+    api.get<unknown, { mode: string; instance_id: string; cloud_url?: string; cloud_connected?: boolean }>('/prompt-workshop/status'),
+
+  // 获取工坊提示词列表
+  getItems: (params?: {
+    category?: string;
+    search?: string;
+    tags?: string;
+    sort?: 'newest' | 'popular' | 'downloads';
+    page?: number;
+    limit?: number;
+  }) => api.get<unknown, PromptWorkshopListResponse>('/prompt-workshop/items', { params }),
+
+  // 获取单个提示词
+  getItem: (itemId: string) =>
+    api.get<unknown, { success: boolean; data: PromptWorkshopItem }>(`/prompt-workshop/items/${itemId}`),
+
+  // 导入到本地
+  importItem: (itemId: string, customName?: string) =>
+    api.post<unknown, { success: boolean; message: string; writing_style: WritingStyle }>(
+      `/prompt-workshop/items/${itemId}/import`,
+      { custom_name: customName }
+    ),
+
+  // 点赞
+  toggleLike: (itemId: string) =>
+    api.post<unknown, { success: boolean; liked: boolean; like_count: number }>(
+      `/prompt-workshop/items/${itemId}/like`
+    ),
+
+  // 提交提示词
+  submit: (data: PromptSubmissionCreate) =>
+    api.post<unknown, { success: boolean; message: string; submission: PromptSubmission }>('/prompt-workshop/submit', data),
+
+  // 我的提交
+  getMySubmissions: (status?: string) =>
+    api.get<unknown, { success: boolean; data: { total: number; items: PromptSubmission[] } }>(
+      '/prompt-workshop/my-submissions',
+      { params: { status } }
+    ),
+
+  // 撤回提交
+  withdrawSubmission: (submissionId: string) =>
+    api.delete<unknown, { success: boolean; message: string }>(`/prompt-workshop/submissions/${submissionId}`),
 };
 
 export const polishApi = {

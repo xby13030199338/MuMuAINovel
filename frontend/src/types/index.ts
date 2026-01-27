@@ -881,3 +881,94 @@ export interface ForeshadowContextResponse {
   overdue: Foreshadow[];
   recently_planted: Foreshadow[];
 }
+
+// ==================== 提示词工坊类型定义 ====================
+
+export interface PromptWorkshopItem {
+  id: string;
+  name: string;
+  description?: string;
+  prompt_content: string;
+  category: string;
+  tags?: string[];
+  author_name?: string;
+  is_official: boolean;
+  download_count: number;
+  like_count: number;
+  is_liked?: boolean;
+  created_at?: string;
+}
+
+export interface PromptSubmission {
+  id: string;
+  name: string;
+  description?: string;
+  prompt_content?: string;
+  category: string;
+  tags?: string[];
+  author_display_name?: string;
+  is_anonymous: boolean;
+  status: 'pending' | 'approved' | 'rejected';
+  review_note?: string;
+  reviewed_at?: string;
+  created_at?: string;
+  source_instance?: string;
+  submitter_name?: string;
+}
+
+export interface PromptSubmissionCreate {
+  name: string;
+  description?: string;
+  prompt_content: string;
+  category: string;
+  tags?: string[];
+  author_display_name?: string;
+  is_anonymous?: boolean;
+  source_style_id?: number;
+}
+
+export interface PromptWorkshopCategory {
+  id: string;
+  name: string;
+  count: number;
+}
+
+export interface PromptWorkshopListResponse {
+  success: boolean;
+  data: {
+    total: number;
+    page: number;
+    limit: number;
+    items: PromptWorkshopItem[];
+    categories: PromptWorkshopCategory[];
+  };
+}
+
+export interface PromptWorkshopStatusResponse {
+  mode: 'client' | 'server';
+  instance_id: string;
+  cloud_url?: string;
+  cloud_connected?: boolean;
+}
+
+export interface PromptWorkshopAdminStats {
+  total_items: number;
+  total_official: number;
+  total_pending: number;
+  total_downloads: number;
+  total_likes: number;
+}
+
+// 提示词工坊分类常量
+export const PROMPT_CATEGORIES: Record<string, string> = {
+  general: '通用',
+  fantasy: '玄幻/仙侠',
+  martial: '武侠',
+  romance: '言情',
+  scifi: '科幻',
+  horror: '悬疑/惊悚',
+  history: '历史',
+  urban: '都市',
+  game: '游戏/电竞',
+  other: '其他',
+};

@@ -811,21 +811,16 @@ class ImportExportService:
             logger.info(f"导入角色职业关联数: {char_careers_count}")
             
             # 导入故事记忆
-            # 需要先构建章节标题到ID的映射
+            # 需要先构建章节标题到ID的映射（使用章节号+标题组合确保唯一性）
             chapter_title_to_id = {}
-            for ch_data in data.get("chapters", []):
-                title = ch_data.get("title")
-                if title:
-                    # 查询刚导入的章节
-                    ch_result = await db.execute(
-                        select(Chapter).where(
-                            Chapter.project_id == new_project.id,
-                            Chapter.title == title
-                        )
-                    )
-                    ch = ch_result.scalar_one_or_none()
-                    if ch:
-                        chapter_title_to_id[title] = ch.id
+            chapter_result = await db.execute(
+                select(Chapter).where(Chapter.project_id == new_project.id)
+            )
+            imported_chapters = chapter_result.scalars().all()
+            for ch in imported_chapters:
+                # 使用标题作为key，如果有重复标题则取第一个（已导入的顺序）
+                if ch.title and ch.title not in chapter_title_to_id:
+                    chapter_title_to_id[ch.title] = ch.id
             
             memories_count = await ImportExportService._import_story_memories(
                 new_project.id, data.get("story_memories", []), chapter_title_to_id, char_mapping, db
@@ -1107,7 +1102,8 @@ class ImportExportService:
                     WritingStyle.name == style_data.get("name")
                 )
             )
-            if existing.scalar_one_or_none():
+            # 使用 first() 避免多行时报错
+            if existing.first():
                 logger.debug(f"风格 {style_data.get('name')} 已存在，跳过导入")
                 continue
             
@@ -1172,14 +1168,14 @@ class ImportExportService:
             career_id = career_mapping.get(career_name)
             
             if char_id and career_id:
-                # 检查是否已存在
+                # 检查是否已存在（使用 first() 避免多行时报错）
                 existing = await db.execute(
                     select(CharacterCareer).where(
                         CharacterCareer.character_id == char_id,
                         CharacterCareer.career_id == career_id
                     )
                 )
-                if existing.scalar_one_or_none():
+                if existing.first():
                     continue
                 
                 char_career = CharacterCareer(
@@ -1275,11 +1271,11 @@ class ImportExportService:
             if not chapter_id:
                 continue  # 跳过找不到章节的分析
             
-            # 检查是否已存在该章节的分析
+            # 检查是否已存在该章节的分析（使用 first() 避免多行时报错）
             existing = await db.execute(
                 select(PlotAnalysis).where(PlotAnalysis.chapter_id == chapter_id)
             )
-            if existing.scalar_one_or_none():
+            if existing.first():
                 continue
             
             analysis = PlotAnalysis(
@@ -1355,14 +1351,15 @@ class ImportExportService:
             return False
         
         # 查找对应的风格（优先查找用户自定义风格，然后是全局预设风格）
-        # 先查用户自定义风格
+        # 先查用户自定义风格（使用 first() 避免多行时报错）
         style_result = await db.execute(
             select(WritingStyle).where(
                 WritingStyle.user_id == project.user_id,
                 WritingStyle.name == style_name
             )
         )
-        style = style_result.scalar_one_or_none()
+        style_row = style_result.first()
+        style = style_row[0] if style_row else None
         
         # 如果用户自定义风格不存在，查找全局预设风格
         if not style:
@@ -1372,7 +1369,8 @@ class ImportExportService:
                     WritingStyle.name == style_name
                 )
             )
-            style = style_result.scalar_one_or_none()
+            style_row = style_result.first()
+            style = style_row[0] if style_row else None
         
         if not style:
             logger.warning(f"导入项目默认风格时未找到风格: {style_name}")
@@ -1435,11 +1433,9 @@ class ImportExportService:
                 "personality": char.personality,
                 "background": char.background,
                 "appearance": char.appearance,
-                "relationships": char.relationships,
                 "traits": traits,
                 "organization_type": char.organization_type,
                 "organization_purpose": char.organization_purpose,
-                "organization_members": char.organization_members,
                 "avatar_url": char.avatar_url,
                 "main_career_id": char.main_career_id,
                 "main_career_stage": char.main_career_stage,
@@ -1461,6 +1457,26 @@ class ImportExportService:
                         "motto": org.motto,
                         "color": org.color
                     })
+                    
+                    # 从 OrganizationMember 表导出结构化成员数据
+                    members_result = await db.execute(
+                        select(OrganizationMember).where(OrganizationMember.organization_id == org.id)
+                    )
+                    members = members_result.scalars().all()
+                    if members:
+                        char_data["organization_members_data"] = [
+                            {
+                                "character_id": m.character_id,
+                                "position": m.position,
+                                "rank": m.rank,
+                                "loyalty": m.loyalty,
+                                "contribution": m.contribution,
+                                "status": m.status,
+                                "joined_at": m.joined_at,
+                                "source": m.source
+                            }
+                            for m in members
+                        ]
             
             exported_characters.append(char_data)
         
@@ -1532,14 +1548,14 @@ class ImportExportService:
                         errors.append(f"第{idx+1}个角色缺少name字段")
                         continue
                     
-                    # 检查重复名称
+                    # 检查重复名称（使用 first() 避免多行时报错）
                     existing_result = await db.execute(
                         select(Character).where(
                             Character.project_id == project_id,
                             Character.name == name
                         )
                     )
-                    existing = existing_result.scalar_one_or_none()
+                    existing = existing_result.first()
                     
                     if existing:
                         warnings.append(f"角色'{name}'已存在，已跳过")
@@ -1564,11 +1580,9 @@ class ImportExportService:
                         personality=char_data.get("personality"),
                         background=char_data.get("background"),
                         appearance=char_data.get("appearance"),
-                        relationships=char_data.get("relationships"),
                         traits=traits,
                         organization_type=char_data.get("organization_type"),
                         organization_purpose=char_data.get("organization_purpose"),
-                        organization_members=char_data.get("organization_members"),
                         avatar_url=char_data.get("avatar_url"),
                         main_career_id=None,  # 职业ID需要验证后再设置
                         main_career_stage=char_data.get("main_career_stage"),
@@ -1669,6 +1683,44 @@ class ImportExportService:
                         )
                         db.add(organization)
                         await db.flush()
+                        
+                        # 导入组织成员数据（如果有）
+                        members_data = char_data.get("organization_members_data", [])
+                        if members_data and isinstance(members_data, list):
+                            imported_member_count = 0
+                            for m_data in members_data:
+                                try:
+                                    member_char_id = m_data.get("character_id")
+                                    if not member_char_id:
+                                        continue
+                                    # 验证成员角色是否存在于目标项目
+                                    member_char_result = await db.execute(
+                                        select(Character).where(
+                                            Character.id == member_char_id,
+                                            Character.project_id == project_id
+                                        )
+                                    )
+                                    if member_char_result.scalar_one_or_none():
+                                        member = OrganizationMember(
+                                            organization_id=organization.id,
+                                            character_id=member_char_id,
+                                            position=m_data.get("position", "成员"),
+                                            rank=m_data.get("rank", 0),
+                                            loyalty=m_data.get("loyalty", 50),
+                                            contribution=m_data.get("contribution", 0),
+                                            status=m_data.get("status", "active"),
+                                            joined_at=m_data.get("joined_at"),
+                                            source=m_data.get("source", "imported")
+                                        )
+                                        db.add(member)
+                                        imported_member_count += 1
+                                except Exception as me:
+                                    logger.warning(f"导入组织成员失败: {str(me)}")
+                            
+                            if imported_member_count > 0:
+                                organization.member_count = imported_member_count
+                                logger.info(f"导入组织'{name}'的 {imported_member_count} 个成员")
+                        
                         imported_organizations.append(name)
                     else:
                         imported_characters.append(name)

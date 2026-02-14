@@ -193,7 +193,7 @@ export interface OutlineCreate {
 export interface OutlineUpdate {
   title?: string;
   content?: string;
-  // structure 暂不支持修改
+  structure?: string;  // 支持修改structure字段
   // order_index 只能通过 reorder 接口批量调整
 }
 
@@ -220,6 +220,11 @@ export interface Character {
   location?: string;
   motto?: string;
   color?: string;
+  // 角色/组织状态
+  status?: string;
+  status_changed_chapter?: number;
+  current_state?: string;
+  state_updated_chapter?: number;
   // 职业相关字段
   main_career_id?: string;
   main_career_stage?: number;
@@ -240,7 +245,6 @@ export interface CharacterUpdate {
   personality?: string;
   background?: string;
   appearance?: string;
-  relationships?: string;
   organization_type?: string;
   organization_purpose?: string;
   organization_members?: string;

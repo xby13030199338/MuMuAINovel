@@ -360,13 +360,18 @@ pip install -r requirements.txt
 # 配置 .env 文件
 cp .env.example .env
 # 编辑 .env 填入必要配置
+# 从源码构建时需要打开DATABASE_URL注释
+DATABASE_URL=postgresql+asyncpg://mumuai:123456@localhost:5432/mumuai_novel
 
 # 启动 PostgreSQL（可使用 Docker）
 docker run -d --name postgres \
-  -e POSTGRES_PASSWORD=your_password \
+  -e POSTGRES_PASSWORD=123456 \
   -e POSTGRES_DB=mumuai_novel \
   -p 5432:5432 \
   postgres:18-alpine
+
+# 应用迁移数据库
+alembic -c alembic-postgres.ini upgrade head
 
 # 启动后端
 python -m uvicorn app.main:app --host localhost --port 8000 --reload
